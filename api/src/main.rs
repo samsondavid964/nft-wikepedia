@@ -26,7 +26,8 @@ async fn main() {
         .route("/nfts", get(list_nfts))
         .with_state(pool.clone());
         
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = format!("0.0.0.0:{}", port).parse().unwrap();
     
     // Correct way to start the server
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

@@ -32,4 +32,5 @@ RUN cargo build --release --workspace && \
 USER appuser
 
 # Default command (can be overridden)
-CMD ["cargo", "run", "--release", "-p", "event_listener"] 
+EXPOSE 3000
+CMD ["cargo", "run", "--release", "-p", "api"] 
