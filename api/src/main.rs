@@ -27,7 +27,7 @@ async fn main() {
         .with_state(pool.clone());
         
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
-    let addr = format!("0.0.0.0:{}", port).parse().unwrap();
+    let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
     
     // Correct way to start the server
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
