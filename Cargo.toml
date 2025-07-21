@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "api",
+    "db",
+    "common",
+    "event_listener",
+    "metadata_worker"
+]
+
+[workspace.dependencies]
+base64ct = "1.7.3" 

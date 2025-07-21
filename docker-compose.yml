@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  event_listener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
+    image: nftproj-event-listener
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on: []
+    # Uncomment below if you want logs to be visible in the terminal
+    # tty: true
+
+  metadata_worker:
+    build:
+      context: .
+      dockerfile: metadata_worker/Dockerfile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
+    image: nftproj-metadata-worker
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      - event_listener
+    # Uncomment below if you want logs to be visible in the terminal
+    # tty: true
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
+    image: nftproj-api
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on: []
+    ports:
+      - "3000:3000"
+    command: ["cargo", "run", "--release", "-p", "api"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: nftproj-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://api:3000
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+# Both services will share the default network for easy communication if needed
+# Ensure DATABASE_URL is set in your .env file for build-time sqlx support 
