@@ -34,29 +34,3 @@ USER appuser
 # Default command (can be overridden)
 EXPOSE 3000
 CMD ["cargo", "run", "--release", "-p", "api"] 
-
-# Build the frontend
-FROM node:20 as frontend
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build
-
-# Continue Rust build as before
-FROM rust:slim as backend
-# Set workdir
-WORKDIR /app
-COPY . .
-# Accept DATABASE_URL as build arg for sqlx
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-RUN cargo build --release --workspace && \
-    chown -R appuser:appuser /app/target
-
-# Copy frontend build output into backend image
-COPY --from=frontend /app/frontend/dist /app/frontend_dist
-
-USER appuser
-EXPOSE 3000
-CMD ["cargo", "run", "--release", "-p", "api"] 

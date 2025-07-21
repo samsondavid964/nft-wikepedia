@@ -1,9 +1,8 @@
-use axum::{routing::get, Router, Json, extract::State, routing::get_service};
+use axum::{routing::get, Router, Json, extract::State};
 use db::NftMetadata;
 use sqlx::PgPool;
 use std::net::SocketAddr;
 use std::env;
-use tower_http::services::ServeDir;
 
 #[axum::debug_handler]
 async fn list_nfts(State(pool): State<PgPool>) -> Json<Vec<NftMetadata>> {
@@ -25,11 +24,7 @@ async fn main() {
     
     let app = Router::new()
         .route("/nfts", get(list_nfts))
-        .with_state(pool.clone())
-        // Serve static files from /app/frontend_dist at /
-        .nest_service("/", get_service(ServeDir::new("/app/frontend_dist")).handle_error(|error: std::io::Error| async move {
-            (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Static file error: {}", error))
-        }));
+        .with_state(pool.clone());
         
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();

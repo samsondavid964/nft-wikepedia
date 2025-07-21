@@ -13,4 +13,3 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dotenvy = "0.15"
 hyper = "1"
-tower-http = "0.5"
