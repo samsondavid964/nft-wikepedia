@@ -1,7 +1,7 @@
 # Use the latest official Rust image as a base
 FROM rust:slim
 
-# Install system dependencies (OpenSSL, pkg-config, etc.)
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         pkg-config \
@@ -12,26 +12,21 @@ RUN apt-get update && \
         cmake \
         && rm -rf /var/lib/apt/lists/*
 
-# Create a new user to avoid running as root
+# Create a new user
 RUN useradd -ms /bin/bash appuser
 
 # Set workdir
 WORKDIR /app
 
-# Copy the source code
+# Copy the entire project context
 COPY . .
 
-# Accept DATABASE_URL as build arg for sqlx
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-
-# Build the project and change ownership
-RUN cargo build --release --workspace && \
+# Build the specific package
+RUN cargo build --release --package backfill_script && \
     chown -R appuser:appuser /app/target
 
-# Switch to non-root user for running
+# Switch to non-root user
 USER appuser
 
-# Default command (can be overridden)
-EXPOSE 3000
-CMD ["cargo", "run", "--release", "-p", "api"] 
+# Command to run the backfill script
+CMD ["/app/target/release/backfill_script"] 

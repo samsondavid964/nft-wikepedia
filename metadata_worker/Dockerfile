@@ -10,6 +10,7 @@ RUN apt-get update && \
         librdkafka-dev \
         build-essential \
         awscli \
+        cmake \
         && rm -rf /var/lib/apt/lists/*
 
 # Create a new user to avoid running as root

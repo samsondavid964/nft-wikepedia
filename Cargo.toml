@@ -5,7 +5,8 @@ members = [
     "db",
     "common",
     "event_listener",
-    "metadata_worker"
+    "metadata_worker",
+    "backfill_script"
 ]
 
 [workspace.dependencies]
