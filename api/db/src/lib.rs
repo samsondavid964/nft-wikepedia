@@ -1,29 +1,30 @@
 //! Database schema (Postgres):
 // Table: nft_metadata
-//   - id (serial primary key)
-//   - contract_address (text)
-//   - token_id (text)
-//   - chain (text)
-//   - name (text)
-//   - description (text)
-//   - attributes (jsonb)
-//   - raw_metadata (jsonb)
-//   - created_at (timestamp)
+// - id (serial primary key)
+// - contract_address (text)
+// - token_id (text)
+// - chain (text)
+// - name (text)
+// - description (text)
+// - attributes (jsonb)
+// - raw_metadata (jsonb)
+// - created_at (timestamp)
 //
 // Table: nft_media
-//   - id (serial primary key)
-//   - contract_address (text)
-//   - token_id (text)
-//   - media_type (text) -- e.g. 'image', 'animation'
-//   - original_url (text)
-//   - cached_url (text)
-//   - storage_backend (text) -- e.g. 'local', 's3'
-//   - created_at (timestamp)
+// - id (serial primary key)
+// - contract_address (text)
+// - token_id (text)
+// - media_type (text) -- e.g. 'image', 'animation'
+// - original_url (text)
+// - cached_url (text)
+// - storage_backend (text) -- e.g. 'local', 's3'
+// - created_at (timestamp)
 
-use sqlx::PgPool;
+use sqlx::{PgPool, FromRow}; // <--- ADDED FromRow here
+use serde::{Deserialize, Serialize}; // <--- ADDED Deserialize here (good practice if you're serializing/deserializing)
 use serde_json::Value;
 
-#[derive(serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow)] // <--- ADDED Debug, Clone, PartialEq, Deserialize, and FromRow derives
 pub struct NftMetadata {
     pub contract_address: String,
     pub token_id: String,
@@ -32,8 +33,11 @@ pub struct NftMetadata {
     pub description: Option<String>,
     pub attributes: Option<Value>,
     pub raw_metadata: Value,
+    // IMPORTANT: Add the cached_image_url field as selected in your API worker's query
+    pub cached_image_url: Option<String>, // <--- THIS IS THE NEW FIELD
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, FromRow)] // <--- Consider adding these for NftMedia too
 pub struct NftMedia {
     pub contract_address: String,
     pub token_id: String,
