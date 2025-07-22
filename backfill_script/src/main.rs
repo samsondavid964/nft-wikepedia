@@ -52,12 +52,19 @@ async fn main() -> Result<()> {
         .expect("BACKFILL_CONTRACTS must be set (e.g., '0xAddress1,0xAddress2')");
     let contract_addresses: Vec<&str> = contracts_to_backfill_str.split(',').collect();
 
+    let kafka_username = env::var("KAFKA_USERNAME").expect("KAFKA_USERNAME must be set");
+    let kafka_password = env::var("KAFKA_PASSWORD").expect("KAFKA_PASSWORD must be set");
+
     // --- Setup Connections ---
     let provider = Provider::<Http>::try_from(http_url)?;
     let client = Arc::new(provider);
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &kafka_brokers)
+        .set("security.protocol", "SASL_SSL")
+        .set("sasl.mechanisms", "PLAIN")
+        .set("sasl.username", &kafka_username)
+        .set("sasl.password", &kafka_password)
         .set("message.timeout.ms", "5000")
         .create()
         .expect("Failed to create Kafka producer");
