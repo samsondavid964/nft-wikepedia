@@ -19,11 +19,13 @@ RUN useradd -ms /bin/bash appuser
 # Set workdir for subsequent commands
 WORKDIR /app
 
-# Copy only Cargo.toml and Cargo.lock first to leverage Docker caching
-# This step runs as root initially, but we'll chown them before building.
-COPY --chown=appuser:appuser Cargo.toml Cargo.lock ./
+# --- Revised COPY strategy ---
+# Copy only Cargo.toml first. This is crucial for caching and
+# for cases where Cargo.lock might not exist initially.
+COPY --chown=appuser:appuser Cargo.toml ./
 
-# Copy the rest of the application source code, also with appuser ownership
+# Copy the rest of the application source code, including Cargo.lock if it exists locally.
+# If Cargo.lock doesn't exist, Cargo will generate it in the next step.
 COPY --chown=appuser:appuser . .
 
 # Now, set the user for all subsequent build and runtime commands.
@@ -34,8 +36,7 @@ ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
 
 # Build the project
-# Now that Cargo.toml and Cargo.lock (and the rest of the app) are
-# owned by appuser, this build should proceed without permission issues.
+# Cargo will now create or update Cargo.lock under appuser's ownership.
 RUN cargo build --release -p metadata_worker
 
 # Default command (can be overridden)
