@@ -25,15 +25,13 @@ COPY --chown=appuser:appuser Cargo.toml ./
 # Copy the rest of the application source code.
 COPY --chown=appuser:appuser . .
 
-# --- NEW ADDITION FOR TARGET DIRECTORY PERMISSIONS ---
-# Create the target directory and ensure it's owned by appuser.
-# This prevents permission denied errors when Cargo tries to build.
-# This must run as root (before USER appuser).
+# Ensure necessary build directories/files are owned by appuser
+# These commands run as root before USER appuser
 RUN mkdir -p target && chown appuser:appuser target
-
-# Ensure Cargo.lock is owned by appuser (from previous fix)
 RUN touch Cargo.lock && chown appuser:appuser Cargo.lock
-# --- END NEW ADDITION ---
+
+# No longer need RUN mkdir -p /app/image_cache and chown for it
+# because the application no longer writes to media_cache locally.
 
 # Now, set the user for all subsequent build and runtime commands.
 USER appuser
