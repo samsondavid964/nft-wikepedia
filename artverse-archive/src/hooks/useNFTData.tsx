@@ -1,15 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 
-// Define the API base URL using an environment variable
-// You MUST set REACT_APP_API_BASE_URL on Render for your frontend service!
-const API_BASE_URL = process.env.VITE_API_URL || "http://localhost:3000";
-// Fallback to localhost for local development if the env var isn't set.
-// In your Render environment, make sure REACT_APP_API_BASE_URL is set to "https://nft-wikepedia-api.onrender.com"
+// Hardcode the API base URL for testing
+// REMEMBER TO CHANGE THIS BACK TO USING ENVIRONMENT VARIABLES FOR PRODUCTION!
+const API_BASE_URL = "https://nft-wikepedia-api.onrender.com/nfts"; // <--- HARDCODED FOR TESTING
 
 interface NFT {
   id: string;
   name: string;
-  image: string; // This will now hold the S3 cached URL
+  image: string;
   description: string;
   attributes: Array<{
     trait_type: string;
@@ -116,23 +114,18 @@ export const useNFTData = (searchQuery: string) => {
   const loadNFTs = useCallback(async (reset: boolean = false) => {
     setLoading(true);
     try {
-      // 2. Use the API_BASE_URL for the fetch request
-      const response = await fetch(`${API_BASE_URL}/nfts`); // <--- UPDATED FETCH URL
+      const response = await fetch(`${API_BASE_URL}/nfts`); // This line remains the same
       const backendNFTs = await response.json();
 
       const mappedNFTs: NFT[] = backendNFTs.map((nft: any) => {
-        // 3. PRIORITIZE cached_image_url from the backend
-        // Your API now returns 'cached_image_url' directly on the NFT object.
         let imageUrl = nft.cached_image_url;
 
-        // Fallback to original raw_metadata image if cached_image_url is null/undefined
         if (!imageUrl && nft.raw_metadata) {
             imageUrl = nft.raw_metadata.image || nft.raw_metadata.image_url || "";
         }
 
-        // Final fallback if no image URL is found
         if (!imageUrl) {
-            imageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop"; // fallback
+            imageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop";
         }
 
         let attributes: Array<{ trait_type: string; value: string }> = [];
@@ -145,7 +138,7 @@ export const useNFTData = (searchQuery: string) => {
         return {
           id: `${nft.contract_address}:${nft.token_id}`,
           name: nft.name || nft.raw_metadata?.name || "Unnamed NFT",
-          image: imageUrl, // <--- Use the determined imageUrl
+          image: imageUrl,
           description: nft.description || nft.raw_metadata?.description || "",
           attributes,
           collection: nft.raw_metadata?.collection?.name || "",
@@ -168,7 +161,7 @@ export const useNFTData = (searchQuery: string) => {
       }
       setHasMore(endIndex < filtered.length);
     } catch (e) {
-      console.error("Failed to fetch NFTs:", e); // Log the error for debugging
+      console.error("Failed to fetch NFTs:", e);
       setNfts([]);
       setHasMore(false);
     }
