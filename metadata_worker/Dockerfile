@@ -2,7 +2,6 @@
 FROM rust:slim
 
 # Install system dependencies (OpenSSL, pkg-config, etc.)
-# Ensure there are NO non-breaking spaces (\u00a0) here, only regular spaces
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         pkg-config \
@@ -23,19 +22,30 @@ WORKDIR /app
 # Copy the entire workspace into the image
 COPY . .
 
-# IMPORTANT CHANGE HERE: Change ownership of the whole /app directory
-# (This was the fix for the previous "Permission denied" error, keep it)
+# --- IMPORTANT CHANGE STARTS HERE ---
+# Switch to the non-root user *before* building
+USER appuser
+
+# Now, explicitly chown /app to appuser.
+# This is still necessary because `COPY . .` (which happens before `USER appuser`)
+# runs as root, so the copied files will be initially owned by root.
+# We need appuser to own them before it tries to build/write.
 RUN chown -R appuser:appuser /app
 
-# Accept DATABASE_URL as build arg for sqlx (no change needed here)
+# --- IMPORTANT CHANGE ENDS HERE ---
+
+# Accept DATABASE_URL as build arg for sqlx
 ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
 
-# Build the project (no ownership change needed here anymore, as /app is already owned by appuser)
+# Build the project
+# This command will now run as 'appuser', and it should have the necessary permissions
+# to create and modify files within /app/target/release.
 RUN cargo build --release
 
-# Switch to non-root user for running
-USER appuser
+# The final USER appuser instruction for the CMD is now redundant, but harmless,
+# as the user was already set. You can remove it or keep it for clarity.
+# USER appuser
 
 # Default command (can be overridden)
 CMD ["cargo", "run", "--release", "-p", "metadata_worker"]
