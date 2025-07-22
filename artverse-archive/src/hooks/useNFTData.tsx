@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 
-// Hardcode the API base URL for testing
-// REMEMBER TO CHANGE THIS BACK TO USING ENVIRONMENT VARIABLES FOR PRODUCTION!
-const API_BASE_URL = "https://nft-wikepedia-api.onrender.com/nfts"; // <--- HARDCODED FOR TESTING
+// You will handle the API_BASE_URL yourself.
+// For this example, I'll keep it as a placeholder pointing to the correct base.
+const API_BASE_URL = "https://nft-wikepedia-api.onrender.com";
 
 interface NFT {
   id: string;
   name: string;
-  image: string;
+  image: string; // This will hold the final resolved image URL (S3, IPFS, or fallback)
   description: string;
   attributes: Array<{
     trait_type: string;
@@ -16,6 +16,20 @@ interface NFT {
   collection?: string;
   chain?: string;
   mintDate?: string;
+  // It's good practice to also type the raw backend fields if you access them directly
+  // or if they influence your mapping logic.
+  cached_image_url?: string; // Add this if the backend directly sends it at the top level
+  raw_metadata?: {
+    image?: string;
+    image_url?: string;
+    name?: string;
+    description?: string;
+    collection?: { name?: string };
+    minted_date?: string;
+    // ... any other relevant raw_metadata fields
+  };
+  contract_address?: string; // Add this if you use it for the ID
+  token_id?: string;        // Add this if you use it for the ID
 }
 
 export const useNFTData = (searchQuery: string) => {
@@ -30,13 +44,11 @@ export const useNFTData = (searchQuery: string) => {
     const terms: string[] = [];
     const filters: any = {};
     
-    // Split query by spaces but keep quoted strings together
     const parts = query.match(/(".*?"|\S+)/g) || [];
     
     parts.forEach(part => {
-      const cleanPart = part.replace(/^"(.*)"$/, '$1'); // Remove quotes
+      const cleanPart = part.replace(/^"(.*)"$/, '$1');
       
-      // Check for specific search patterns
       if (cleanPart.startsWith('blockchain:')) {
         filters.blockchain = cleanPart.substring(10).toLowerCase();
       } else if (cleanPart.startsWith('chain:')) {
@@ -44,13 +56,10 @@ export const useNFTData = (searchQuery: string) => {
       } else if (cleanPart.startsWith('type:')) {
         filters.fileType = cleanPart.substring(5).toLowerCase();
       } else if (cleanPart.startsWith('#')) {
-        // Token ID search
         filters.tokenId = cleanPart.substring(1);
       } else if (/^\d+$/.test(cleanPart)) {
-        // Pure number - also treat as potential token ID
         filters.tokenId = cleanPart;
       } else {
-        // Regular search term
         terms.push(cleanPart.toLowerCase());
       }
     });
@@ -64,16 +73,15 @@ export const useNFTData = (searchQuery: string) => {
     const { terms, filters } = parseSearchQuery(query);
     
     return nfts.filter(nft => {
-      // Blockchain filter
       if (filters.blockchain && nft.chain?.toLowerCase() !== filters.blockchain) {
         return false;
       }
       
-      // File type filter (mock - would check actual file extension in real app)
       if (filters.fileType) {
         const imageTypes = ['image', 'img', 'jpeg', 'jpg', 'png', 'gif', 'webp'];
         const videoTypes = ['video', 'mp4', 'avi', 'mov', 'webm'];
         
+        // Use nft.image for filtering, as it's the resolved URL
         if (filters.fileType === 'image' && !imageTypes.some(type => 
           nft.image?.toLowerCase().includes(type) || nft.name.toLowerCase().includes(type)
         )) {
@@ -87,13 +95,11 @@ export const useNFTData = (searchQuery: string) => {
         }
       }
       
-      // Token ID filter
       if (filters.tokenId && !nft.id.includes(filters.tokenId) && 
           !nft.name.toLowerCase().includes(`#${filters.tokenId}`)) {
         return false;
       }
       
-      // General search terms
       if (terms.length > 0) {
         const searchableText = [
           nft.name,
@@ -114,19 +120,39 @@ export const useNFTData = (searchQuery: string) => {
   const loadNFTs = useCallback(async (reset: boolean = false) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/nfts`); // This line remains the same
+      // Ensure API_BASE_URL is correct (e.g., "https://api.example.com", not "https://api.example.com/nfts")
+      const response = await fetch(`${API_BASE_URL}/nfts`); 
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
       const backendNFTs = await response.json();
 
       const mappedNFTs: NFT[] = backendNFTs.map((nft: any) => {
-        let imageUrl = nft.cached_image_url;
+        let imageUrl = nft.cached_image_url; // 1. Try cached_image_url first (S3)
 
+        // 2. Fallback to raw_metadata image if cached_image_url is null/undefined/empty
         if (!imageUrl && nft.raw_metadata) {
             imageUrl = nft.raw_metadata.image || nft.raw_metadata.image_url || "";
         }
 
+        // 3. Final fallback if no image URL is found
         if (!imageUrl) {
-            imageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop";
+            imageUrl = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop"; // fallback stock image
         }
+
+        // --- Console logs for debugging ---
+        console.group("NFT Debug Info for:", nft.name || nft.token_id || nft.id);
+        console.log("Raw backend NFT object:", nft);
+        console.log("cached_image_url (from backend):", nft.cached_image_url);
+        console.log("raw_metadata.image (from backend):", nft.raw_metadata?.image);
+        console.log("raw_metadata.image_url (from backend):", nft.raw_metadata?.image_url);
+        console.log("--- FINAL imageUrl resolved to:", imageUrl);
+        console.groupEnd();
+        // --- End Console logs ---
+
 
         let attributes: Array<{ trait_type: string; value: string }> = [];
         if (Array.isArray(nft.attributes)) {
@@ -138,7 +164,7 @@ export const useNFTData = (searchQuery: string) => {
         return {
           id: `${nft.contract_address}:${nft.token_id}`,
           name: nft.name || nft.raw_metadata?.name || "Unnamed NFT",
-          image: imageUrl,
+          image: imageUrl, // <--- This `image` property will be passed to NFTCard
           description: nft.description || nft.raw_metadata?.description || "",
           attributes,
           collection: nft.raw_metadata?.collection?.name || "",
