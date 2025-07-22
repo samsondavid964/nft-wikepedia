@@ -1,5 +1,7 @@
+# File: /your_repo_root/api_worker/Cargo.toml
+
 [package]
-name = "api"
+name = "api" # The name of your API worker crate
 version = "0.1.0"
 edition = "2024"
 
@@ -7,10 +9,18 @@ edition = "2024"
 axum = { version = "0.7", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "macros"] }
-db = { path = "../db" }
-common = { path = "../common" }
+db = { path = "./db" }     # <--- CORRECTED: Path is relative to api_worker/
+common = { path = "./common" } # <--- CORRECTED: Path is relative to api_worker/
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dotenvy = "0.15"
 hyper = "1"
 tower-http = { version = "0.5", features = ["cors"] }
+
+# THIS IS THE NEW WORKSPACE DEFINITION FOR THE API WORKER CONTEXT
+[workspace]
+members = [
+    ".",         # The current crate ('api') is part of this workspace
+    "db",        # Refers to the 'db' crate in api_worker/db/
+    "common",    # Refers to the 'common' crate in api_worker/common/
+]
