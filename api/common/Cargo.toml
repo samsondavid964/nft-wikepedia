@@ -1,3 +1,5 @@
+# File: /your_repo_root/api_worker/common/Cargo.toml
+
 [package]
 name = "common"
 version = "0.1.0"
