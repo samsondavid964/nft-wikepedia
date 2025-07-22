@@ -111,7 +111,7 @@ export const useNFTData = (searchQuery: string) => {
     setLoading(true);
     try {
       // Fetch from backend
-      const response = await fetch("/nfts");
+      const response = await fetch("https://nft-wikepedia.onrender.com/nfts");
       const backendNFTs = await response.json();
       // Map backend NFT to frontend NFT interface
       const mappedNFTs: NFT[] = backendNFTs.map((nft: any) => {
