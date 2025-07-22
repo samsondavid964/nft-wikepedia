@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 ethers = { version = "2.0", features = ["abigen"] }
-rdkafka = { version = "0.36.0", features = ["cmake-build"] }
+rdkafka = { version = "0.36.0", features = ["cmake-build", "ssl"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 common = { path = "./common" }
