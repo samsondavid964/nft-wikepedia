@@ -2,7 +2,7 @@ use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{StreamConsumer, Consumer};
 use rdkafka::message::Message;
 use std::env;
-use common::NftMintJob;
+use common::NftMintJob; // Assuming 'common' is a crate in your workspace
 use serde_json;
 use tokio_stream::StreamExt;
 use reqwest::Client;
@@ -12,7 +12,7 @@ use std::fs;
 use std::path::Path;
 use sha2::{Sha256, Digest};
 use sqlx::PgPool;
-use db::{NftMetadata, NftMedia};
+use db::{NftMetadata, NftMedia}; // Assuming 'db' is a crate in your workspace
 use aws_sdk_s3::{Client as S3Client, primitives::ByteStream};
 use aws_sdk_s3::config::Credentials;
 use aws_config::Region;
@@ -129,6 +129,15 @@ async fn main() -> anyhow::Result<()> {
     let kafka_brokers = env::var("KAFKA_BROKERS").expect("KAFKA_BROKERS must be set");
     let kafka_topic = env::var("KAFKA_TOPIC").unwrap_or_else(|_| "nft_mint_jobs".to_string());
     let group_id = env::var("KAFKA_GROUP_ID").unwrap_or_else(|_| "metadata_worker_group".to_string());
+    
+    // --- START: ADDED/UPDATED KAFKA SASL/SSL CONFIGURATION ---
+    let security_protocol = env::var("KAFKA_SECURITY_PROTOCOL").unwrap_or_else(|_| "SASL_SSL".to_string());
+    let sasl_mechanisms = env::var("KAFKA_SASL_MECHANISMS").unwrap_or_else(|_| "PLAIN".to_string());
+    let sasl_username = env::var("KAFKA_SASL_USERNAME").expect("KAFKA_SASL_USERNAME must be set for Confluent Cloud");
+    let sasl_password = env::var("KAFKA_SASL_PASSWORD").expect("KAFKA_SASL_PASSWORD must be set for Confluent Cloud");
+    let session_timeout_ms = env::var("KAFKA_SESSION_TIMEOUT_MS").unwrap_or_else(|_| "45000".to_string());
+    // --- END: ADDED/UPDATED KAFKA SASL/SSL CONFIGURATION ---
+
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPool::connect(&db_url).await?;
 
@@ -155,6 +164,13 @@ async fn main() -> anyhow::Result<()> {
         .set("bootstrap.servers", &kafka_brokers)
         .set("group.id", &group_id)
         .set("auto.offset.reset", "earliest")
+        // --- START: APPLYING KAFKA SASL/SSL SETTINGS TO CLIENT CONFIG ---
+        .set("security.protocol", &security_protocol)
+        .set("sasl.mechanisms", &sasl_mechanisms)
+        .set("sasl.username", &sasl_username)
+        .set("sasl.password", &sasl_password)
+        .set("session.timeout.ms", &session_timeout_ms) 
+        // --- END: APPLYING KAFKA SASL/SSL SETTINGS TO CLIENT CONFIG ---
         .create()
         .expect("Failed to create Kafka consumer");
 
