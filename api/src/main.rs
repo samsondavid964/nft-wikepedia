@@ -3,6 +3,8 @@ use db::NftMetadata;
 use sqlx::PgPool;
 use std::net::SocketAddr;
 use std::env;
+use tower_http::cors::{CorsLayer};
+use axum::http::{Method, HeaderValue};
 
 #[axum::debug_handler]
 async fn list_nfts(State(pool): State<PgPool>) -> Json<Vec<NftMetadata>> {
@@ -22,9 +24,15 @@ async fn main() {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPool::connect(&db_url).await.expect("Failed to connect to DB");
     
+    let cors = CorsLayer::new()
+        .allow_origin(HeaderValue::from_static("https://nft-wikepedia-1.onrender.com"))
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers(tower_http::cors::Any);
+
     let app = Router::new()
         .route("/nfts", get(list_nfts))
-        .with_state(pool.clone());
+        .with_state(pool.clone())
+        .layer(cors);
         
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
