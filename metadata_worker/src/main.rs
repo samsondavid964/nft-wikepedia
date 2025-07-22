@@ -8,8 +8,9 @@ use tokio_stream::StreamExt;
 use reqwest::Client;
 use reqwest::StatusCode;
 use std::time::Duration;
-use std::fs;
-use std::path::Path;
+// Removed fs and Path imports as we won't be writing to local filesystem for media cache
+// use std::fs;
+// use std::path::Path;
 use sha2::{Sha256, Digest};
 use sqlx::PgPool;
 use db::{NftMetadata, NftMedia}; // Assuming 'db' is a crate in your workspace
@@ -17,7 +18,7 @@ use aws_sdk_s3::{Client as S3Client, primitives::ByteStream};
 use aws_sdk_s3::config::Credentials;
 use aws_config::Region;
 use aws_config::BehaviorVersion;
-use anyhow;
+use anyhow; // Added anyhow explicitly, though it might be transitive
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NormalizedMetadata {
@@ -81,6 +82,7 @@ async fn upload_to_s3(s3: &S3Client, bucket: &str, key: &str, bytes: &[u8]) -> a
     Ok(url)
 }
 
+// Modified to only upload to S3. If S3 config is missing or upload fails, it returns an error.
 async fn fetch_and_cache_media(client: &Client, s3: Option<&S3Client>, bucket: Option<&str>, url: &str) -> anyhow::Result<(String, String, String)> {
     let resolved = resolve_uri(url);
     let resp = client.get(&resolved)
@@ -101,26 +103,36 @@ async fn fetch_and_cache_media(client: &Client, s3: Option<&S3Client>, bucket: O
             return Err(anyhow::anyhow!("Failed to read media bytes: {} ({})", resolved, e));
         }
     };
+
     // Hash the original URL for a unique filename
     let mut hasher = Sha256::new();
     hasher.update(url.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    let ext = Path::new(&resolved).extension().and_then(|e| e.to_str()).unwrap_or("bin");
-    let filename = format!("media_cache/{}.{}", hash, ext);
-    fs::create_dir_all("media_cache")?;
-    fs::write(&filename, &bytes)?;
+
+    // Determine extension from original URL (or default to "bin")
+    let ext_pos = resolved.rfind('.').map_or(resolved.len(), |idx| idx + 1);
+    let ext = &resolved[ext_pos..];
+    let ext = if ext.is_empty() || ext.contains('/') || ext.contains('\\') {
+        "bin" // Fallback if no valid extension found or it's part of a path
+    } else {
+        ext
+    };
+
+
     // If S3 is configured, upload and return S3 URL
     if let (Some(s3), Some(bucket)) = (s3, bucket) {
         let s3_key = format!("{}.{}", hash, ext);
         match upload_to_s3(s3, bucket, &s3_key, &bytes).await {
             Ok(s3_url) => return Ok((s3_url, resolved, "s3".to_string())),
             Err(e) => {
-                eprintln!("[ERROR] Failed to upload to S3: {}. Falling back to local cache.", e);
-                return Ok((filename, resolved, "local".to_string()));
+                // If S3 upload fails, we now return an error instead of falling back to local.
+                return Err(anyhow::anyhow!("Failed to upload to S3: {}", e));
             }
         }
+    } else {
+        // If S3 is NOT configured, we also return an error because local caching is removed.
+        return Err(anyhow::anyhow!("S3 not configured for media caching. No local fallback enabled."));
     }
-    Ok((filename, resolved, "local".to_string()))
 }
 
 #[tokio::main]
@@ -169,7 +181,7 @@ async fn main() -> anyhow::Result<()> {
         .set("sasl.mechanisms", &sasl_mechanisms)
         .set("sasl.username", &sasl_username)
         .set("sasl.password", &sasl_password)
-        .set("session.timeout.ms", &session_timeout_ms) 
+        .set("session.timeout.ms", &session_timeout_ms)
         // --- END: APPLYING KAFKA SASL/SSL SETTINGS TO CLIENT CONFIG ---
         .create()
         .expect("Failed to create Kafka consumer");
